@@ -1,0 +1,4 @@
+torch>=2.0.0
+numpy>=1.22.0
+pygame>=2.3.0
+matplotlib>=3.7.0
