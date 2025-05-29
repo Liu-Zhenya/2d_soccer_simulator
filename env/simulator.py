@@ -8,7 +8,7 @@ BALL_SPEED_DECAY = 0.98
 GOAL_WIDTH = 14
 AGENT_RADIUS = 3.0
 SHOOT_COOL_DOWN = 18
-INTERCEPT_COOL_DOWN = 9
+INTERCEPT_COOL_DOWN = 2
 MACRO_ACTIONS = ["move", "shoot", "intercept"]
 
 
@@ -38,7 +38,8 @@ class SoccerEnv:
         self.cooldowns = {"A": 0, "B": 0}
 
         if self.training_mode:
-            self.who_start_game = "A" if self.episode_count % 2 == 0 else "B"
+            # self.who_start_game = "A" if self.episode_count % 2 == 0 else "B"
+            self.who_to_start_game = 'B'
         else:
             # no meaning right now
             self.who_start_game = self.last_reset_ball_owner
@@ -146,7 +147,8 @@ class SoccerEnv:
         self.state[10:12] *= BALL_SPEED_DECAY
         self.state[8:10] += self.state[10:12]
 
-        for offset, label in [(0, "A"), (4, "B")]:
+        # for offset, label in [(0, "A"), (4, "B")]:
+        for offset, label in [(4, "B")]:
             if self.ball_owner is None:
                 agent_pos = self.state[offset : offset + 2]
                 dist = np.linalg.norm(agent_pos - self.state[8:10])
@@ -154,6 +156,9 @@ class SoccerEnv:
                     self.ball_owner = label
 
     def _resolve_events(self, macro_A, param_A, macro_B, param_B):
+        '''
+        Places define the rewards
+        '''
         for e in self.event_table:
             if e["status"] == "pending":
                 elapsed = self.t - e["start_time"]
@@ -191,7 +196,7 @@ class SoccerEnv:
                         e["status"] = "done"
                         self.done = True
 
-                elif e["type"] == "intercept" and elapsed >= 9:
+                elif e["type"] == "intercept" and elapsed >= INTERCEPT_COOL_DOWN:
                     agent_offset = 0 if e["agent"] == "A" else 4
                     agent_pos = self.state[agent_offset : agent_offset + 2]
                     ball_pos = self.state[8:10]

@@ -13,7 +13,7 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
     buffer_A = ReplayBuffer()
     buffer_B = ReplayBuffer()
     reward_tracker = []
-    MAX_STEPS = 1000
+    MAX_STEPS = 100
 
     print("[INFO] Starting self-play training...")
 
@@ -27,40 +27,40 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
         macro_history_B = []
 
         while not done and step_count < MAX_STEPS:
-            if env.cooldowns["A"] > 0:
-                macro_A, param_A = -1, [0.0, 0.0]
-            else:
-                macro_A, param_A = agent_A.select_action(state)
+            # Always set Agent A's action to -1 (no action) to ban movement
+            macro_A, param_A = -1, [0.0, 0.0]
 
             if env.cooldowns["B"] > 0:
                 macro_B, param_B = -1, [0.0, 0.0]
             else:
                 macro_B, param_B = agent_B.select_action(state)
 
-            if macro_A != -1:
-                if (
-                    MACRO_ACTIONS[macro_A] == "shoot"
-                    and env.cooldowns["A"] == SHOOT_COOL_DOWN
-                ):
-                    reward = 50 if env.ball_owner == "A" else -100
-                    buffer_A.add(
-                        (state.copy(), macro_A, param_A, reward, state.copy(), done)
-                    )
-                    episode_reward_A += reward
-                elif (
-                    MACRO_ACTIONS[macro_A] == "intercept"
-                    and env.cooldowns["A"] == INTERCEPT_COOL_DOWN
-                ):
-                    agent_pos = state[0:2]
-                    ball_pos = state[8:10]
-                    dist = np.linalg.norm(agent_pos - ball_pos)
-                    reward = -80 if env.ball_owner == "A" else (-20 if dist >= 10 else 0)
-                    if reward != 0:
-                        buffer_A.add(
-                            (state.copy(), macro_A, param_A, reward, state.copy(), done)
-                        )
-                        episode_reward_A += reward
-                macro_history_A.append((state.copy(), macro_A, param_A))
+            # Skip processing Agent A's actions since they're always -1 now
+            # We keep this commented out for reference
+            # if macro_A != -1:
+            #     if (
+            #         MACRO_ACTIONS[macro_A] == "shoot"
+            #         and env.cooldowns["A"] == SHOOT_COOL_DOWN
+            #     ):
+            #         reward = 50 if env.ball_owner == "A" else -100
+            #         buffer_A.add(
+            #             (state.copy(), macro_A, param_A, reward, state.copy(), done)
+            #         )
+            #         episode_reward_A += reward
+            #     elif (
+            #         MACRO_ACTIONS[macro_A] == "intercept"
+            #         and env.cooldowns["A"] == INTERCEPT_COOL_DOWN
+            #     ):
+            #         agent_pos = state[0:2]
+            #         ball_pos = state[8:10]
+            #         dist = np.linalg.norm(agent_pos - ball_pos)
+            #         reward = -80 if env.ball_owner == "A" else (-20 if dist >= 10 else 0)
+            #         if reward != 0:
+            #             buffer_A.add(
+            #                 (state.copy(), macro_A, param_A, reward, state.copy(), done)
+            #             )
+            #             episode_reward_A += reward
+            #     macro_history_A.append((state.copy(), macro_A, param_A))
 
             if macro_B != -1:
                 if (
@@ -89,27 +89,33 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
 
             next_state, r_A, r_B, done = env.step(macro_A, param_A, macro_B, param_B)
 
-            if r_A != 0 and macro_history_A:
-                s, m, p = macro_history_A.pop(0)
-                buffer_A.add((s, m, p, r_A, next_state.copy(), done))
-                episode_reward_A += r_A
+            # Skip processing delayed rewards for Agent A since it doesn't take actions
+            # if r_A != 0 and macro_history_A:
+            #     s, m, p = macro_history_A.pop(0)
+            #     buffer_A.add((s, m, p, r_A, next_state.copy(), done))
+            #     episode_reward_A += r_A
             if r_B != 0 and macro_history_B:
                 s, m, p = macro_history_B.pop(0)
                 buffer_B.add((s, m, p, r_B, next_state.copy(), done))
                 episode_reward_B += r_B
 
-            if macro_A == 0:
-                move_r = shaping_reward(state, agent="A")
-                buffer_A.add(
-                    (state.copy(), macro_A, param_A, move_r, next_state.copy(), done)
-                )
-                episode_reward_A += move_r
+            # Skip move rewards for Agent A
+            # if macro_A == 0:
+            #     move_r = shaping_reward(state, agent="A")
+            #     buffer_A.add(
+            #         (state.copy(), macro_A, param_A, move_r, next_state.copy(), done)
+            #     )
+            #     episode_reward_A += move_r
             if macro_B == 0:
                 move_r = shaping_reward(state, agent="B")
                 buffer_B.add(
                     (state.copy(), macro_B, param_B, move_r, next_state.copy(), done)
                 )
                 episode_reward_B += move_r
+            
+            if (state[0] <= 2 or state[0]>=98 or state[1] >= 58 or state[1]<=2):
+                env.done = True
+                done = True
 
             state = next_state
             step_count += 1
@@ -118,7 +124,8 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
             f"[EP {ep}] Finished in {step_count} steps | Total Reward A: {episode_reward_A:.2f} | B: {episode_reward_B:.2f}"
         )
 
-        update_agent(agent_A, buffer_A.sample())
+        # Skip updating Agent A to ban its learning
+        # update_agent(agent_A, buffer_A.sample())
         update_agent(agent_B, buffer_B.sample())
         buffer_A.clear()
         buffer_B.clear()

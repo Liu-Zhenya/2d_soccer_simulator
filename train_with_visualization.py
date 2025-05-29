@@ -49,7 +49,7 @@ def draw_arrow(start, direction, agent_id="A", length=20, color=(255, 255, 0)):
     end = (start[0] + length * unit[0], start[1] + length * unit[1])
     pygame.draw.line(screen, color, start, end, 3)
 
-def render_env(env, macro_A, macro_B, elapsed_time, cum_A, cum_B, score_A, score_B, reward_window=None):
+def render_env(env, macro_A, macro_B, elapsed_time, cum_A, cum_B, score_A, score_B, reward_window_A=None, reward_window_B=None):
     goal_height = int(14 * SCALE[1])
     screen.fill(GREEN)
     pygame.draw.rect(screen, WHITE, pygame.Rect(0, 0, WIDTH, HEIGHT), 5)
@@ -122,8 +122,8 @@ def render_env(env, macro_A, macro_B, elapsed_time, cum_A, cum_B, score_A, score
     scoreboard_rect = scoreboard.get_rect(center=(WIDTH // 2, 20))
     screen.blit(scoreboard, scoreboard_rect)
     
-    # If we have reward data, draw a small chart
-    if reward_window is not None and len(reward_window) > 1:
+    # If we have reward data, draw a small chart for both agents
+    if (reward_window_A is not None and len(reward_window_A) > 1) or (reward_window_B is not None and len(reward_window_B) > 1):
         # Draw reward trend
         chart_width, chart_height = 200, 80
         chart_x, chart_y = WIDTH - chart_width - 10, HEIGHT - chart_height - 10
@@ -132,26 +132,47 @@ def render_env(env, macro_A, macro_B, elapsed_time, cum_A, cum_B, score_A, score
         pygame.draw.rect(screen, (0, 0, 0, 128), (chart_x, chart_y, chart_width, chart_height))
         pygame.draw.rect(screen, WHITE, (chart_x, chart_y, chart_width, chart_height), 1)
         
-        # Plot data
-        max_val = max(max(reward_window), 1)
-        min_val = min(min(reward_window), -1)
-        range_val = max(max_val - min_val, 1)
-        
-        # Draw zero line if in range
-        if min_val <= 0 and max_val >= 0:
-            zero_y = chart_y + chart_height - int((0 - min_val) / range_val * chart_height)
-            pygame.draw.line(screen, GRAY, (chart_x, zero_y), (chart_x + chart_width, zero_y), 1)
-        
-        # Draw reward data
-        for i in range(1, len(reward_window)):
-            x1 = chart_x + int((i-1) * chart_width / (len(reward_window) - 1))
-            y1 = chart_y + chart_height - int((reward_window[i-1] - min_val) / range_val * chart_height)
-            x2 = chart_x + int(i * chart_width / (len(reward_window) - 1))
-            y2 = chart_y + chart_height - int((reward_window[i] - min_val) / range_val * chart_height)
-            pygame.draw.line(screen, BLUE, (x1, y1), (x2, y2), 2)
-        
-        # Label
-        screen.blit(FONT.render("Recent A Rewards", True, WHITE), (chart_x, chart_y - 25))
+        # Combine data from both agents for min/max calculations
+        combined_rewards = []
+        if reward_window_A is not None and len(reward_window_A) > 0:
+            combined_rewards.extend(reward_window_A)
+        if reward_window_B is not None and len(reward_window_B) > 0:
+            combined_rewards.extend(reward_window_B)
+            
+        if combined_rewards:
+            max_val = max(max(combined_rewards), 1)
+            min_val = min(min(combined_rewards), -1)
+            range_val = max(max_val - min_val, 1)
+            
+            # Draw zero line if in range
+            if min_val <= 0 and max_val >= 0:
+                zero_y = chart_y + chart_height - int((0 - min_val) / range_val * chart_height)
+                pygame.draw.line(screen, GRAY, (chart_x, zero_y), (chart_x + chart_width, zero_y), 1)
+            
+            # Draw reward data for Agent A
+            if reward_window_A is not None and len(reward_window_A) > 1:
+                for i in range(1, len(reward_window_A)):
+                    x1 = chart_x + int((i-1) * chart_width / (len(reward_window_A) - 1))
+                    y1 = chart_y + chart_height - int((reward_window_A[i-1] - min_val) / range_val * chart_height)
+                    x2 = chart_x + int(i * chart_width / (len(reward_window_A) - 1))
+                    y2 = chart_y + chart_height - int((reward_window_A[i] - min_val) / range_val * chart_height)
+                    pygame.draw.line(screen, BLUE, (x1, y1), (x2, y2), 2)
+                    
+            # Draw reward data for Agent B
+            if reward_window_B is not None and len(reward_window_B) > 1:
+                for i in range(1, len(reward_window_B)):
+                    x1 = chart_x + int((i-1) * chart_width / (len(reward_window_B) - 1))
+                    y1 = chart_y + chart_height - int((reward_window_B[i-1] - min_val) / range_val * chart_height)
+                    x2 = chart_x + int(i * chart_width / (len(reward_window_B) - 1))
+                    y2 = chart_y + chart_height - int((reward_window_B[i] - min_val) / range_val * chart_height)
+                    pygame.draw.line(screen, RED, (x1, y1), (x2, y2), 2)
+            
+            # Legend
+            pygame.draw.line(screen, BLUE, (chart_x + 10, chart_y - 15), (chart_x + 30, chart_y - 15), 2)
+            screen.blit(FONT.render("A", True, WHITE), (chart_x + 35, chart_y - 20))
+            pygame.draw.line(screen, RED, (chart_x + 50, chart_y - 15), (chart_x + 70, chart_y - 15), 2)
+            screen.blit(FONT.render("B", True, WHITE), (chart_x + 75, chart_y - 20))
+            screen.blit(FONT.render("Recent Rewards", True, WHITE), (chart_x, chart_y - 40))
 
     pygame.display.flip()
 
@@ -160,7 +181,8 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
     buffer_B = ReplayBuffer()
     reward_tracker = []
     MAX_STEPS = 1000
-    reward_window = deque(maxlen=100)  # For visualizing recent rewards
+    reward_window_A = deque(maxlen=100)  # For visualizing recent rewards for Agent A
+    reward_window_B = deque(maxlen=100)  # For visualizing recent rewards for Agent B
     
     score_A = score_B = 0
     
@@ -233,6 +255,7 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                     reward = 50 if env.ball_owner == "A" else -100
                     buffer_A.add((state.copy(), macro_A, param_A, reward, state.copy(), done))
                     episode_reward_A += reward
+                    reward_window_A.append(reward)  # Add to visualization window
                 elif MACRO_ACTIONS[macro_A] == "intercept" and env.cooldowns["A"] == INTERCEPT_COOL_DOWN:
                     agent_pos = state[0:2]
                     ball_pos = state[8:10]
@@ -241,6 +264,7 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                     if reward != 0:
                         buffer_A.add((state.copy(), macro_A, param_A, reward, state.copy(), done))
                         episode_reward_A += reward
+                        reward_window_A.append(reward)  # Add to visualization window
                 macro_history_A.append((state.copy(), macro_A, param_A))
             
             # Process Agent B's action
@@ -249,6 +273,7 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                     reward = 50 if env.ball_owner == "B" else -100
                     buffer_B.add((state.copy(), macro_B, param_B, reward, state.copy(), done))
                     episode_reward_B += reward
+                    reward_window_B.append(reward)  # Add to visualization window
                 elif MACRO_ACTIONS[macro_B] == "intercept" and env.cooldowns["B"] == INTERCEPT_COOL_DOWN:
                     agent_pos = state[4:6]
                     ball_pos = state[8:10]
@@ -257,6 +282,7 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                     if reward != 0:
                         buffer_B.add((state.copy(), macro_B, param_B, reward, state.copy(), done))
                         episode_reward_B += reward
+                        reward_window_B.append(reward)  # Add to visualization window
                 macro_history_B.append((state.copy(), macro_B, param_B))
             
             # Take a step in the environment
@@ -273,30 +299,33 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                 s, m, p = macro_history_A.pop(0)
                 buffer_A.add((s, m, p, r_A, next_state.copy(), done))
                 episode_reward_A += r_A
-                reward_window.append(r_A)  # Add to visualization window
+                reward_window_A.append(r_A)  # Add to visualization window
                 
             if r_B != 0 and macro_history_B:
                 s, m, p = macro_history_B.pop(0)
                 buffer_B.add((s, m, p, r_B, next_state.copy(), done))
                 episode_reward_B += r_B
+                reward_window_B.append(r_B)  # Add to visualization window
             
             # Process move rewards through shaping
             if macro_A == 0:
                 move_r = shaping_reward(state, agent="A")
                 buffer_A.add((state.copy(), macro_A, param_A, move_r, next_state.copy(), done))
                 episode_reward_A += move_r
+                reward_window_A.append(move_r)  # Add to visualization window
                 
             if macro_B == 0:
                 move_r = shaping_reward(state, agent="B")
                 buffer_B.add((state.copy(), macro_B, param_B, move_r, next_state.copy(), done))
                 episode_reward_B += move_r
+                reward_window_B.append(move_r)  # Add to visualization window
             
             # Visualize current state
             elapsed_time = time.time() - start_time
             render_env(env, macro_A, macro_B, elapsed_time, 
                       episode_reward_A, episode_reward_B, 
                       score_A, score_B, 
-                      reward_window)
+                      reward_window_A, reward_window_B)
             
             # Control frame rate
             clock.tick(fps)
@@ -361,7 +390,7 @@ if __name__ == "__main__":
     agent_B = HierarchicalPPOAgent(name="B")
     
     # Start training with visualization
-    fps = 60  # Higher value for faster training, lower for better visualization
+    fps = 3200  # Higher value for faster training, lower for better visualization
     reward_log = train_with_visualization(env, agent_A, agent_B, num_episodes=100, fps=fps)
     
     # Save trained models
