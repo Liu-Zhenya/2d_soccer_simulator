@@ -36,10 +36,10 @@ class SoccerEnv:
         self.event_table.clear()
         self.pending_rewards.clear()
         self.cooldowns = {"A": 0, "B": 0}
-
+        self.ball_owner = None
         if self.training_mode:
             # self.who_start_game = "A" if self.episode_count % 2 == 0 else "B"
-            self.who_to_start_game = "B"
+            self.who_start_game = "B"
         else:
             # no meaning right now
             self.who_start_game = self.last_reset_ball_owner
@@ -49,13 +49,13 @@ class SoccerEnv:
             self.state[2:4] = [1.5, 0]
             self.state[4:6] = [80, 30]
             self.state[6:8] = [-1.5, 0]
-            self.state[8:10] = self.state[0:2] + np.array([AGENT_RADIUS, 0])
+            self.state[8:10] = [45, 30]
         elif self.who_start_game == "B":
-            self.state[4:6] = [55, 30]
+            self.state[4:6] = [80, 30]
             self.state[6:8] = [-1.5, 0]
             self.state[0:2] = [20, 30]
             self.state[2:4] = [1.5, 0]
-            self.state[8:10] = self.state[4:6] + np.array([-AGENT_RADIUS, 0])
+            self.state[8:10] = [45, 30]
         else:
             self.state[0:2] = [40, 30]
             self.state[2:4] = [1.5, 0]
@@ -66,6 +66,7 @@ class SoccerEnv:
         self.prev_ball_pos = self.state[8:10].copy()
         self.episode_count += 1
         # self.last_reset_ball_owner = self.ball_owner
+        print(f"[RESET] Starting agent: {self.ball_owner}, Positions: A {self.state[0:2]}, B {self.state[4:6]}")
         return self.state.copy()
 
     def step(self, action_A, param_A, action_B, param_B):
@@ -97,7 +98,7 @@ class SoccerEnv:
 
     def _update_agents(self, macro_A, param_A, macro_B, param_B):
         for macro, param, offset, label in zip(
-            [macro_B], [param_B], [4], ["B"]
+            [macro_A, macro_B], [param_A, param_B], [0, 4], ["A","B"]
         ):
             if macro == -1:
                 continue
@@ -124,7 +125,10 @@ class SoccerEnv:
                 )
                 self.cooldowns[label] = INTERCEPT_COOL_DOWN
             elif self._macro_name(macro) == "move":
-                direction = np.array([np.cos(param[0]), np.sin(param[0])]) * param[1] * 1.5
+                if label == "A":
+                    direction = np.array([np.abs(np.cos(param[0])), np.sin(param[0])]) * param[1] * 1.5
+                else:
+                    direction = np.array([-np.abs(np.cos(param[0])), np.sin(param[0])]) * param[1] * 1.5
                 self.state[offset + 2 : offset + 4] = direction
                 new_pos = self.state[offset : offset + 2] + direction
                 new_pos[0] = np.clip(new_pos[0], 0, FIELD_WIDTH)
@@ -147,8 +151,8 @@ class SoccerEnv:
         self.state[10:12] *= BALL_SPEED_DECAY
         self.state[8:10] += self.state[10:12]
 
-        # for offset, label in [(0, "A"), (4, "B")]:
-        for offset, label in [(4, "B")]:
+        for offset, label in [(0, "A"), (4, "B")]:
+        # for offset, label in [(4, "B")]:
             if self.ball_owner is None:
                 agent_pos = self.state[offset : offset + 2]
                 dist = np.linalg.norm(agent_pos - self.state[8:10])
@@ -178,7 +182,7 @@ class SoccerEnv:
                         print(f"[Resolved] Shoot by {e['agent']} → HIT THE GOAL")
 
                     elif curr_x >= FIELD_WIDTH and 23 <= goal_y <= 37:
-                        self.pending_rewards.append(("A", 100))
+                        self.pending_rewards.append(("A", 500))
                         self.pending_rewards.append(("B", -50))
                         self.done = True
                         e["status"] = "done"
@@ -202,14 +206,16 @@ class SoccerEnv:
                     agent_pos = self.state[agent_offset : agent_offset + 2]
                     ball_pos = self.state[8:10]
                     dist = np.linalg.norm(agent_pos - ball_pos)
-
+                    
                     if self.ball_owner == e["agent"]:
                         self.pending_rewards.append((e["agent"], -80))
                     elif dist < STEAL_RANGE:
                         self.ball_owner = e["agent"]
-                        self.pending_rewards.append((e["agent"], 100))
+                        self.pending_rewards.append((e["agent"], 500))
+                        print(f"[Resolved] Intercepted by {e['agent']} → Scuess!")
                     else:
-                        self.pending_rewards.append((e["agent"], -20))
+                        self.pending_rewards.append((e["agent"], -80))
+                        print(f"[Resolved] Intercepted by {e['agent']} → Failed")
 
                     e["status"] = "done"
 

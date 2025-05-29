@@ -12,7 +12,7 @@ from collections import deque
 
 MACRO_ACTIONS = ["move", "shoot", "intercept"]
 SHOOT_COOL_DOWN = 18
-INTERCEPT_COOL_DOWN = 9
+INTERCEPT_COOL_DOWN = 2
 
 # Initialize Pygame for visualization
 pygame.init()
@@ -365,7 +365,6 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                     MACRO_ACTIONS[macro_B] == "shoot"
                     and env.cooldowns["B"] == SHOOT_COOL_DOWN
                 ):
-                    print("shoot!")
                     reward = 500
                     buffer_B.add(
                         (state.copy(), macro_B, param_B, reward, state.copy(), done)
@@ -430,6 +429,10 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                 reward_window_B.append(move_r)  # Add to visualization window
 
             if state[4] <= 2 or state[4] >= 98 or state[5] >= 58 or state[5] <= 2:
+                env.done = True
+                done = True
+            
+            if state[0] <= 2 or state[0] >= 98 or state[1] >= 58 or state[1] <= 2:
                 env.done = True
                 done = True
 

@@ -6,7 +6,7 @@ import math
 
 MACRO_ACTIONS = ["move", "shoot", "intercept"]
 SHOOT_COOL_DOWN = 18
-INTERCEPT_COOL_DOWN = 9
+INTERCEPT_COOL_DOWN = 0
 
 
 def train_self_play(env, agent_A, agent_B, num_episodes):
@@ -171,7 +171,7 @@ def shaping_reward(state, agent):
     ball_pos = state[8:10]
     ball_dist = np.linalg.norm(agent_pos - ball_pos)
     if ball_dist > 10.0:
-        return -1.0 * ball_dist / 100
+        return -0.5 * ball_dist / 100
     if 3.0 < ball_dist <= 10.0:
         0.5 * (1 / (1 + ball_dist))
     # return 0.5 if ball_dist <= 3.0 else 0.9 * (1 / ball_dist)
