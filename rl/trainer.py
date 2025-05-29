@@ -63,6 +63,9 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
             #     macro_history_A.append((state.copy(), macro_A, param_A))
 
             if macro_B != -1:
+
+                print("shoot")
+
                 if (
                     MACRO_ACTIONS[macro_B] == "shoot"
                     and env.cooldowns["B"] == SHOOT_COOL_DOWN
@@ -112,10 +115,22 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
                     (state.copy(), macro_B, param_B, move_r, next_state.copy(), done)
                 )
                 episode_reward_B += move_r
-            
-            if (state[0] <= 2 or state[0]>=98 or state[1] >= 58 or state[1]<=2):
+
+            if state[0] <= 2 or state[0] >= 98 or state[1] >= 58 or state[1] <= 2:
                 env.done = True
                 done = True
+
+            if state[4] <= 2 or state[4] >= 98 or state[5] >= 58 or state[5] <= 2:
+                env.done = True
+                done = True
+
+            # if state[0] <= 10 or state[0] >= 70 or state[1] >= 40 or state[1] <= 10:
+            #     env.done = True
+            #     done = True
+
+            # if state[4] <= 10 or state[4] >= 70 or state[5] >= 40 or state[5] <= 10:
+            #     env.done = True
+            #     done = True
 
             state = next_state
             step_count += 1
@@ -137,14 +152,26 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
 
 
 def shaping_reward(state, agent):
+    # idx = 0 if agent == "A" else 4
+    # agent_pos = state[idx : idx + 2]
+    # ball_pos = state[8:10]
+
+    # ball_dist = np.linalg.norm(agent_pos - ball_pos)
+    # if ball_dist > 10.0:
+    #     return -1.0
+
+    # # return 0.5 if ball_dist <= 3.0 else 0.9 * (1 / ball_dist)
+    # return 0.5 if ball_dist <= 3.0 else 0
+
     idx = 0 if agent == "A" else 4
     agent_pos = state[idx : idx + 2]
     ball_pos = state[8:10]
 
     ball_dist = np.linalg.norm(agent_pos - ball_pos)
     if ball_dist > 10.0:
-        return -1.0
-
+        return -1.0 * ball_dist / 100
+    if 3.0 < ball_dist <= 10.0:
+        0.5 * (1 / (1 + ball_dist))
     # return 0.5 if ball_dist <= 3.0 else 0.9 * (1 / ball_dist)
     return 0.5 if ball_dist <= 3.0 else 0
 

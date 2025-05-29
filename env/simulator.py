@@ -39,7 +39,7 @@ class SoccerEnv:
 
         if self.training_mode:
             # self.who_start_game = "A" if self.episode_count % 2 == 0 else "B"
-            self.who_to_start_game = 'B'
+            self.who_to_start_game = "B"
         else:
             # no meaning right now
             self.who_start_game = self.last_reset_ball_owner
@@ -156,9 +156,9 @@ class SoccerEnv:
                     self.ball_owner = label
 
     def _resolve_events(self, macro_A, param_A, macro_B, param_B):
-        '''
+        """
         Places define the rewards
-        '''
+        """
         for e in self.event_table:
             if e["status"] == "pending":
                 elapsed = self.t - e["start_time"]
