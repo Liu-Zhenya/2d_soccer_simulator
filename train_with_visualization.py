@@ -252,7 +252,7 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
     buffer_A = ReplayBuffer()
     buffer_B = ReplayBuffer()
     reward_tracker = []
-    MAX_STEPS = 100
+    MAX_STEPS = 1000
     reward_window_A = deque(maxlen=100)  # For visualizing recent rewards for Agent A
     reward_window_B = deque(maxlen=100)  # For visualizing recent rewards for Agent B
 
@@ -266,6 +266,8 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
             break
 
         state = env.reset(training=True)
+        state = np.append(state, env.ball_owner == "A") 
+        state = np.append(state, env.ball_owner == "B")
         done = False
         episode_reward_A = 0
         episode_reward_B = 0
@@ -313,7 +315,6 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
 
             if not running:
                 break
-
             # Agent A's action
             if env.cooldowns["A"] > 0:
                 macro_A, param_A = -1, [0.0, 0.0]
@@ -332,7 +333,7 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                     MACRO_ACTIONS[macro_A] == "shoot"
                     and env.cooldowns["A"] == SHOOT_COOL_DOWN
                 ):
-                    reward = 50 if env.ball_owner == "A" else -100
+                    reward = 50
                     buffer_A.add(
                         (state.copy(), macro_A, param_A, reward, state.copy(), done)
                     )
@@ -356,11 +357,16 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
 
             # Process Agent B's action
             if macro_B != -1:
+                # rand = np.random.rand()
+                # if rand < 0.1:
+                #     if env.ball_owner == "B":
+                #         MACRO_ACTIONS[macro_B] == "shoot"
                 if (
                     MACRO_ACTIONS[macro_B] == "shoot"
                     and env.cooldowns["B"] == SHOOT_COOL_DOWN
                 ):
-                    reward = 50 if env.ball_owner == "B" else -100
+                    print("shoot!")
+                    reward = 500
                     buffer_B.add(
                         (state.copy(), macro_B, param_B, reward, state.copy(), done)
                     )
@@ -384,6 +390,8 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
 
             # Take a step in the environment
             next_state, r_A, r_B, done = env.step(macro_A, param_A, macro_B, param_B)
+            next_state = np.append(next_state, env.ball_owner == "A") 
+            next_state = np.append(next_state, env.ball_owner == "B") 
 
             # Update scores if goals were scored
             if r_A > 20:  # Goal for A
@@ -421,6 +429,10 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
                 episode_reward_B += move_r
                 reward_window_B.append(move_r)  # Add to visualization window
 
+            if state[4] <= 2 or state[4] >= 98 or state[5] >= 58 or state[5] <= 2:
+                env.done = True
+                done = True
+
             # Visualize current state
             elapsed_time = time.time() - start_time
             render_env(
@@ -438,10 +450,12 @@ def train_with_visualization(env, agent_A, agent_B, num_episodes, fps=30):
 
             # Control frame rate
             clock.tick(fps)
-
             state = next_state
             step_count += 1
+        
 
+        episode_reward_A /=step_count
+        episode_reward_B /= step_count
         print(
             f"[EP {ep}] Finished in {step_count} steps | Total Reward A: {episode_reward_A:.2f} | B: {episode_reward_B:.2f}"
         )
@@ -507,7 +521,7 @@ if __name__ == "__main__":
 
     # Start training with visualization
     fps = 3200  # Higher value for faster training, lower for better visualization
-    reward_log = train_with_visualization(env, agent_A, agent_B, num_episodes=100, fps=fps)
+    reward_log = train_with_visualization(env, agent_A, agent_B, num_episodes=1000, fps=fps)
 
     # Save trained models
     torch.save(agent_A.policy.state_dict(), "agent_A.pth")

@@ -97,7 +97,7 @@ class SoccerEnv:
 
     def _update_agents(self, macro_A, param_A, macro_B, param_B):
         for macro, param, offset, label in zip(
-            [macro_A, macro_B], [param_A, param_B], [0, 4], ["A", "B"]
+            [macro_B], [param_B], [4], ["B"]
         ):
             if macro == -1:
                 continue
@@ -168,13 +168,14 @@ class SoccerEnv:
                     curr_x = self.state[8]
 
                     if curr_x <= 0 and 23 <= goal_y <= 37:
-                        self.pending_rewards.append(("B", 100))
+                        self.pending_rewards.append(("B", 500))
                         self.pending_rewards.append(("A", -50))
                         self.done = True
                         e["status"] = "done"
                         self.event_table.append(
                             {"type": "goal", "agent": "B", "status": "done"}
                         )
+                        print(f"[Resolved] Shoot by {e['agent']} → HIT THE GOAL")
 
                     elif curr_x >= FIELD_WIDTH and 23 <= goal_y <= 37:
                         self.pending_rewards.append(("A", 100))
@@ -191,7 +192,7 @@ class SoccerEnv:
                         or self.state[9] < 0
                         or self.state[9] > FIELD_HEIGHT
                     ):
-                        self.pending_rewards.append((e["agent"], -22))
+                        self.pending_rewards.append((e["agent"], 0))
                         print(f"[Resolved] Shoot by {e['agent']} → MISS at t={self.t}")
                         e["status"] = "done"
                         self.done = True

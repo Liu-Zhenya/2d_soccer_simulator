@@ -116,9 +116,9 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
                 )
                 episode_reward_B += move_r
 
-            if state[0] <= 2 or state[0] >= 98 or state[1] >= 58 or state[1] <= 2:
-                env.done = True
-                done = True
+            # if state[0] <= 2 or state[0] >= 98 or state[1] >= 58 or state[1] <= 2:
+            #     env.done = True
+            #     done = True
 
             if state[4] <= 2 or state[4] >= 98 or state[5] >= 58 or state[5] <= 2:
                 env.done = True
@@ -134,6 +134,9 @@ def train_self_play(env, agent_A, agent_B, num_episodes):
 
             state = next_state
             step_count += 1
+        print(step_count)
+        episode_reward_B /= step_count
+        episode_reward_A /= step_count
 
         print(
             f"[EP {ep}] Finished in {step_count} steps | Total Reward A: {episode_reward_A:.2f} | B: {episode_reward_B:.2f}"
@@ -166,7 +169,6 @@ def shaping_reward(state, agent):
     idx = 0 if agent == "A" else 4
     agent_pos = state[idx : idx + 2]
     ball_pos = state[8:10]
-
     ball_dist = np.linalg.norm(agent_pos - ball_pos)
     if ball_dist > 10.0:
         return -1.0 * ball_dist / 100
